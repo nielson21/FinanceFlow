@@ -1,0 +1,14 @@
+﻿@using FinanceFlow.Constants
+@if (TempData[TempDataKeys.SuccessMessage] is string success)
+{
+    <div class="alert alert-success" role="alert">
+        @success
+    </div>
+}
+
+@if (TempData[TempDataKeys.ErrorMessage] is string error)
+{
+    <div class="alert alert-danger" role="alert">
+        @error
+    </div>
+}

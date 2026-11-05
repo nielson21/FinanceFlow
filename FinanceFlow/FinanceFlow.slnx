@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="../README.md" />
+  </Folder>
+  <Project Path="../FinanceFlow.Client/FinanceFlow.Client.csproj" Id="65403f3e-9d70-4dd2-b6f9-edc5821ebf55" />
+  <Project Path="../FinanceFlow.Tests/FinanceFlow.Tests.csproj" Id="7f2551f9-8899-4c5c-9563-9345136265fe" />
+  <Project Path="FinanceFlow.csproj" />
+</Solution>

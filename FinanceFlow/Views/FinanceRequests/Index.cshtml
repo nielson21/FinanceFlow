@@ -1,0 +1,121 @@
+﻿@model FinanceFlow.Models.FinanceRequestIndexViewModel
+@{
+    var phTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+}
+<h2>My Finance Requests</h2>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">
+        Create Request
+    </a>
+</p>
+
+<form method="get" asp-action="Index" class="mb-3">
+    <div class="d-flex gap-2">
+        <input type="text"
+               name="search"
+               value="@Model.Search"
+               class="form-control"
+               placeholder="Search reference no. or title" />
+
+        <select name="status" class="form-select" style="width: 220px;">
+            <option value="">All Statuses</option>
+
+            @foreach (var status in Enum.GetValues<RequestStatus>())
+            {
+                <option value="@status"
+                        selected="@(Model.Status == status)">
+                    @status
+                </option>
+            }
+        </select>
+
+        <button type="submit" class="btn btn-primary">
+            Filter
+        </button>
+    </div>
+</form>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Reference No.</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model.Requests)
+        {
+            <tr>
+                <td>@item.Title</td>
+                <td>@item.ReferenceNo</td>
+                <td>@item.Amount.ToString("N2")</td>
+                <td>@item.Status</td>
+                <td>@TimeZoneService.FormatFromUtc(item.CreatedAt)</td>
+                <td>
+                    <a asp-action="Details"
+                       asp-route-id="@item.Id"
+                       class="btn btn-sm btn-info">
+                        Details
+                    </a>
+
+                    @if (item.Status == RequestStatus.Draft)
+                    {
+                        <a asp-action="Edit"
+                           asp-route-id="@item.Id"
+                           class="btn btn-sm btn-secondary">
+                            Edit
+                        </a>
+
+                        <form asp-action="Submit"
+                              asp-route-id="@item.Id"
+                              method="post"
+                              class="d-inline">
+
+                            <button type="submit"
+                                    class="btn btn-sm btn-success">
+                                Submit
+                            </button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model.TotalPages > 1)
+{
+    <div class="d-grid align-items-center mt-3" style="grid-template-columns: 1fr auto 1fr;">
+
+        <div></div>
+
+        <span class="fw-semibold">
+            Page @Model.CurrentPage of @Model.TotalPages
+        </span>
+
+        <div class="d-flex justify-content-end gap-2">
+            <a asp-action="Index"
+               asp-route-page="@(Model.CurrentPage - 1)"
+               asp-route-status="@Model.Status"
+               asp-route-search="@Model.Search"
+               class="btn btn-outline-secondary @(Model.HasPreviousPage ? "" : "disabled")">
+                Previous
+            </a>
+
+            <a asp-action="Index"
+               asp-route-page="@(Model.CurrentPage + 1)"
+               asp-route-status="@Model.Status"
+               asp-route-search="@Model.Search"
+               class="btn btn-outline-secondary @(Model.HasNextPage ? "" : "disabled")">
+                Next
+            </a>
+        </div>
+
+    </div>
+}

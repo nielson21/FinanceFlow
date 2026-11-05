@@ -1,0 +1,58 @@
+﻿@using FinanceFlow.Areas.Admin.Models
+@model List<UserListItemViewModel>
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<h1>User Management</h1>
+
+<p>Admin user management page.</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>User Name</th>
+            <th>Roles</th>
+            <th>Status</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Model)
+        {
+            <tr>
+                <td>@user.Email</td>
+                <td>@user.UserName</td>
+                <td>@string.Join(", ", user.Roles)</td>
+                <td>@(user.IsActive ? "Active" : "Inactive")</td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a asp-action="Edit" asp-route-id="@user.Id" class="btn btn-primary btn-sm">
+                            Edit
+                        </a>
+
+                        @if (user.IsActive)
+                        {
+                            <form asp-action="Deactivate" method="post">
+                                <input type="hidden" name="id" value="@user.Id" />
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    Deactivate
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <form asp-action="Reactivate" method="post">
+                                <input type="hidden" name="id" value="@user.Id" />
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    Reactivate
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

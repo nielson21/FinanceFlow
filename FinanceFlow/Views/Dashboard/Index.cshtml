@@ -1,0 +1,145 @@
+﻿@model DashboardViewModel
+
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row g-3 mb-4">
+
+    <div class="col-md-3">
+        <a asp-controller="FinanceRequests"
+            asp-action="Index"
+            asp-route-status="@RequestStatus.Draft"
+            class="text-decoration-none text-reset">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted">Draft</div>
+                    <div class="fs-2 fw-semibold">@Model.DraftCount</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-3">
+        <a asp-controller="FinanceRequests"
+            asp-action="Index"
+            asp-route-status="@RequestStatus.PendingApproval"
+            class="text-decoration-none text-reset">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted">Pending Approval</div>
+                    <div class="fs-2 fw-semibold">@Model.PendingApprovalCount</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-3">
+         <a asp-controller="FinanceRequests"
+            asp-action="Index"
+            asp-route-status="@RequestStatus.Approved"
+            class="text-decoration-none text-reset">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted">Approved</div>
+                    <div class="fs-2 fw-semibold">@Model.ApprovedCount</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <div class="col-md-3">
+         <a asp-controller="FinanceRequests"
+            asp-action="Index"
+            asp-route-status="@RequestStatus.Rejected"
+            class="text-decoration-none text-reset">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="text-muted">Rejected</div>
+                    <div class="fs-2 fw-semibold">@Model.RejectedCount</div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+</div>
+
+<div class="row g-3">
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted">Total Request Amount</div>
+                <div class="fs-3 fw-semibold" data-testid="total-amount">@Model.TotalAmount.ToString("C2")</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted">Pending Amount</div>
+                <div class="fs-3 fw-semibold" data-testid="pending-amount">@Model.PendingApprovalAmount.ToString("C2")</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted">Approved Amount</div>
+                <div class="fs-3 fw-semibold" data-testid="approved-amount">@Model.ApprovedAmount.ToString("C2")</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Recent Requests</h5>
+
+        @if (Model.RecentRequests.Count == 0)
+        {
+            <p class="text-muted mb-0">No recent requests.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Reference No.</th>
+                            <th>Title</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var request in Model.RecentRequests)
+                        {
+                            <tr>
+                                <td>
+                                    <a asp-controller="FinanceRequests"
+                                       asp-action="Details"
+                                       asp-route-id="@request.Id">
+                                        @request.ReferenceNo
+                                    </a>
+                                </td>
+                                <td>@request.Title</td>
+                                <td>@request.Amount.ToString("C2")</td>
+                                <td>@request.Status</td>
+                                <td>
+                                    @TimeZoneService.FormatFromUtc(request.CreatedAt)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

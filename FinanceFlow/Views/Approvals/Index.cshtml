@@ -1,0 +1,51 @@
+﻿@model IEnumerable<FinanceFlow.Models.FinanceRequest>
+
+<h2>Pending Approvals</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Requestor</th>
+            <th>Title</th>
+            <th>Amount</th>
+            <th>Created</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.Requestor.Email</td>
+                <td>@item.Title</td>
+                <td>@item.Amount.ToString("N2")</td>
+                <td>@TimeZoneService.FormatFromUtc(item.CreatedAt)</td>
+                <td>
+                    <form method="post">
+                        <input type="hidden"
+                               name="Id"
+                               value="@item.Id" />
+
+                        <input type="text"
+                               name="Comment"
+                               class="form-control form-control-sm mb-2"
+                               placeholder="Add comment..." />
+
+                        <button type="submit"
+                                asp-action="Approve"
+                                class="btn btn-sm btn-success">
+                            Approve
+                        </button>
+
+                        <button type="submit"
+                                asp-action="Reject"
+                                class="btn btn-sm btn-danger">
+                            Reject
+                        </button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

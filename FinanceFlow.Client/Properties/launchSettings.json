@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "FinanceFlow.Client": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
