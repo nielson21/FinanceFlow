@@ -1,6 +1,16 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
+using FinanceFlow.Data;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
@@ -8,15 +18,6 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Options;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Logging;
-using FinanceFlow.Data;
 
 namespace FinanceFlow.Areas.Identity.Pages.Account;
 
@@ -111,6 +112,25 @@ public class ExternalLoginModel : PageModel
             return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
         }
 
+        var linkedUser = await _userManager.FindByLoginAsync(
+    info.LoginProvider, info.ProviderKey);
+
+        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+
+        var existingUser = string.IsNullOrWhiteSpace(email)
+            ? null
+            : await _userManager.FindByEmailAsync(email);
+
+        if (linkedUser is { IsActive: false } ||
+            (linkedUser is null && existingUser is { IsActive: false }))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+
+            ErrorMessage = "Unable to sign in. Please contact your administrator.";
+
+            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+        }
+
         // Sign in the user with this external login provider if the user already has a login.
         var result = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
         if (result.Succeeded)
@@ -122,20 +142,30 @@ public class ExternalLoginModel : PageModel
         {
             return RedirectToPage("./Lockout");
         }
-        else
+        if (result.IsNotAllowed)
         {
-            // If the user does not have an account, then ask the user to create an account.
-            ReturnUrl = returnUrl;
-            ProviderDisplayName = info.ProviderDisplayName;
-            if (info.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
-            {
-                Input = new InputModel
-                {
-                    Email = info.Principal.FindFirstValue(ClaimTypes.Email)!
-                };
-            }
-            return Page();
+            ErrorMessage = "Sign-in is not allowed. Please contact your administrator.";
+            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
         }
+        if (linkedUser is not null || existingUser is not null)
+        {
+            ErrorMessage = "Unable to sign in. If you already have an account, sign in normally to manage your Google login.";
+            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+        }
+
+        // New user registration
+        ReturnUrl = returnUrl;
+        ProviderDisplayName = info.ProviderDisplayName;
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            Input = new InputModel
+            {
+                Email = email
+            };
+        }
+
+        return Page();
     }
 
     public async Task<IActionResult> OnPostConfirmationAsync(string? returnUrl = null)
@@ -151,10 +181,34 @@ public class ExternalLoginModel : PageModel
 
         if (ModelState.IsValid)
         {
+            var providerEmail = info.Principal.FindFirstValue(ClaimTypes.Email);
+
+            // Validate Google email
+            if (string.IsNullOrWhiteSpace(providerEmail) ||
+                !string.Equals(Input.Email.Trim(), providerEmail, StringComparison.OrdinalIgnoreCase))
+            {
+                ModelState.AddModelError("Input.Email", "Email must match your Google account.");
+                ProviderDisplayName = info.ProviderDisplayName;
+                ReturnUrl = returnUrl;
+                return Page();
+            }
+
+            // Prevent duplicate registration
+            var linkedUser = await _userManager.FindByLoginAsync(
+                info.LoginProvider, info.ProviderKey);
+
+            var existingUser = await _userManager.FindByEmailAsync(providerEmail);
+
+            if (linkedUser is not null || existingUser is not null)
+            {
+                ErrorMessage = "Account already exists or registration is not allowed.";
+                return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+            }
+
             var user = CreateUser();
 
-            await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-            await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+            await _userStore.SetUserNameAsync(user, providerEmail, CancellationToken.None);
+            await _emailStore.SetEmailAsync(user, providerEmail, CancellationToken.None);
 
             var result = await _userManager.CreateAsync(user);
             if (result.Succeeded)
@@ -180,6 +234,11 @@ public class ExternalLoginModel : PageModel
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
                         return RedirectToPage("./RegisterConfirmation", new { Email = Input.Email });
+                    }
+                    if (!await _signInManager.CanSignInAsync(user))
+                    {
+                        ErrorMessage = "Sign-in is not allowed. Please contact your administrator.";
+                        return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
                     }
 
                     await _signInManager.SignInAsync(user, isPersistent: false, info.LoginProvider);

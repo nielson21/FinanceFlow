@@ -4,10 +4,14 @@ using FinanceFlow.Constants;
 using FinanceFlow.Data;
 using FinanceFlow.Services;
 using FinanceFlow.Services.Data;
+using FinanceFlow.Services.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.Globalization;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +19,48 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
+
+var jwtIssuer = builder.Configuration["Jwt:Issuer"]
+    ?? throw new InvalidOperationException("JWT issuer is missing.");
+
+var jwtAudience = builder.Configuration["Jwt:Audience"]
+    ?? throw new InvalidOperationException("JWT audience is missing.");
+
+var jwtSigningKey = builder.Configuration["Jwt:SigningKey"]
+    ?? throw new InvalidOperationException("JWT signing key is missing.");
+
+var keyBytes = Convert.FromBase64String(jwtSigningKey);
+
+if (keyBytes.Length < 32)
+{
+    throw new InvalidOperationException("JWT signing key must be at least 32 bytes.");
+}
+
+builder.Services.AddAuthentication()
+    .AddJwtBearer("FinanceFlowJwt", options =>
+    {
+        options.MapInboundClaims = false;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
+
+            ValidateLifetime = true,
+            RequireExpirationTime = true,
+            ClockSkew = TimeSpan.FromSeconds(30),
+
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+            RoleClaimType = "role"
+        };
+    });
+
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
@@ -25,10 +71,19 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
     options.Lockout.AllowedForNewUsers = true;
 })
     .AddRoles<IdentityRole>()
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddSignInManager<FinanceFlowSignInManager>();
 
 builder.Services.AddAuthentication()
     .AddBearerToken(IdentityConstants.BearerScheme);
+
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+        options.SignInScheme = IdentityConstants.ExternalScheme;
+    });
 
 builder.Services.Configure<SecurityStampValidatorOptions>(options =>
 {
@@ -45,6 +100,8 @@ builder.Services.AddScoped<IFinanceRequestSummaryReader, DapperFinanceRequestSum
 
 builder.Services.AddScoped<IApprovalHistoryWriter, DapperApprovalHistoryWriter>();
 
+builder.Services.AddScoped<JwtTokenService>();
+
 builder.Services.AddTransient<IRequestReferenceGenerator, RequestReferenceGenerator>();
 
 builder.Services.AddSingleton(TimeProvider.System);
@@ -60,7 +117,12 @@ builder.Services.AddAuthorizationBuilder()
     {
         policy.AddAuthenticationSchemes(IdentityConstants.BearerScheme);
         policy.RequireAuthenticatedUser();
-    });
+    })
+    .AddPolicy("ApiJwt", policy =>
+    {
+        policy.AddAuthenticationSchemes("FinanceFlowJwt");
+        policy.RequireAuthenticatedUser();
+    }); ;
 
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection("App"));
 
